@@ -1,0 +1,25 @@
+###########################################
+# UCF file for the Zedboard+ADAU1761 codec
+#
+# Engineer: Mike Field <hamster@snap.net.nz>
+###########################################
+NET CLK_100       LOC = Y9   | IOSTANDARD=LVCMOS33 | PERIOD = 10 ns;  # "GCLK"
+
+NET AC_ADR0       LOC = AB1  | IOSTANDARD=LVCMOS33;
+NET AC_ADR1       LOC = Y5   | IOSTANDARD=LVCMOS33;
+NET AC_GPIO0      LOC = Y8   | IOSTANDARD=LVCMOS33;
+NET AC_GPIO1      LOC = AA7  | IOSTANDARD=LVCMOS33;
+NET AC_GPIO2      LOC = AA6  | IOSTANDARD=LVCMOS33;
+NET AC_GPIO3      LOC = Y6   | IOSTANDARD=LVCMOS33;
+NET AC_SCK        LOC = AB4  | IOSTANDARD=LVCMOS33;
+NET AC_SDA        LOC = AB5  | IOSTANDARD=LVCMOS33; 
+NET AC_MCLK       LOC = AB2  | IOSTANDARD=LVCMOS33; 
+
+NET SW<0>           LOC = F22  | IOSTANDARD=LVCMOS18;  # "SW0"
+NET SW<1>           LOC = G22  | IOSTANDARD=LVCMOS18;  # "SW1"
+NET SW<2>           LOC = H22  | IOSTANDARD=LVCMOS18;  # "SW2"
+NET SW<3>           LOC = F21  | IOSTANDARD=LVCMOS18;  # "SW3"
+NET SW<4>           LOC = H19  | IOSTANDARD=LVCMOS18;  # "SW4"
+NET SW<5>           LOC = H18  | IOSTANDARD=LVCMOS18;  # "SW5"
+NET SW<6>           LOC = H17  | IOSTANDARD=LVCMOS18;  # "SW6"
+NET SW<7>           LOC = M15  | IOSTANDARD=LVCMOS18;  # "SW7"

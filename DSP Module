@@ -8,23 +8,22 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity DSPModule is
     Port (
-        clk        : in std_logic;            -- Clock signal, used to time the updating of signals within the module
-        rst        : in std_logic;            -- Reset signal, used to initialize or clear the internal state when high
-        audio_in   : in signed(23 downto 0);  -- Input audio signal, expected as a 24-bit signed integer
-        f_sel      : in integer range 1 to 8; -- Selector for choosing which frequency band's filter to apply
-        fgain_lvl  : in integer range -24 to 24; -- Gain control input, modifies output level within -24dB to +24dB range
+        clk        : in std_logic;            -- Clock
+        rst        : in std_logic;            -- Reset
+        audio_in   : in signed(23 downto 0);  -- Input audio  
+        f_sel      : in integer range 1 to 8; -- variable for choosing which band to apply
+        fgain_lvl  : in integer range -24 to 24; -- Gain Adjustment,from -24dB to +24dB range
         audio_out  : out signed(23 downto 0)  -- Output audio signal after filtering
     );
 end DSPModule;
 
-architecture Behavioral of DSPModule is
-    -- Type definitions for arrays used to store filter coefficients and sample history
-    type coeff_array is array (1 to 3) of real; -- Real array for storing filter coefficients
-    type sample_array is array (0 to 2) of signed(23 downto 0); -- Array for storing current and past samples
+architecture Behavioral of DSPModule is -- definitions for  storage arrays, Real array for storing filter coefficients, Real array for storing filter coefficients
+    type coeff_array is array (1 to 3) of real; 
+    type audio_array is array (0 to 2) of signed(23 downto 0); -- 24bit audio
 
-    -- Coefficients for Butterworth filters at specified frequencies
-    constant b_coeffs : array (1 to 8) of coeff_array := (
-        -- b coefficients for each frequency (feedforward terms)
+    -- Coefficients for Butterworth filters at specified frequencies, Calculated Using MATLAB
+
+    constant b_coeffs : array (1 to 8) of coeff_array := ( -- b coefficients for each frequency (feedforward terms)
           (0.000017, 0.000035, 0.000017),  -- Coefficients for 64 Hz
         (0.000066, 0.000132, 0.000066),  -- Coefficients for 125 Hz
         (0.000262, 0.000523, 0.000262),  -- Coefficients for 250 Hz
@@ -34,8 +33,7 @@ architecture Behavioral of DSPModule is
         (0.049490, 0.098980, 0.049490),  -- Coefficients for 4000 Hz
         (0.465153, 0.930306, 0.465153)   -- Coefficients for 16000 Hz
     );
-    constant a_coeffs : array (1 to 8) of coeff_array := (
-        -- a coefficients for each frequency (feedback terms)
+    constant a_coeffs : array (1 to 8) of coeff_array := (  -- a coefficients for each frequency (feedback terms)
         (1.0, -1.988152, 0.988222), -- Coefficients for 64 Hz
         (1.0, -1.976861, 0.977126), -- Coefficients for 250 Hz
         (1.0, -1.953728, 0.954775), -- Coefficients for 500 Hz
@@ -46,30 +44,32 @@ architecture Behavioral of DSPModule is
         (1.0, -0.620204, 0.240408) -- Coefficients for 16000 Hz
     );
 
-    -- Internal signals to store the history of input and output samples
-    signal x_hist, y_hist : sample_array;  -- x_hist stores input samples, y_hist stores output samples
+    -- Internal signals to store the history of input and output audio samples
+    signal x_hist, y_hist : audio_array;  -- x_hist stores input audio samples, y_hist stores output audio samples
 
     -- Filter output signal
-    signal filter_output : signed(23 downto 0);
+    signal filter_output : signed(23 downto 0); -- 24 bit filtered audio out
 
 begin
-    -- Filter processing block, sensitive to clock and reset
+    -- Filter processess, relates to clock and reset
     filter_processing : process(clk, rst)
-    variable yn : real;  -- Variable to compute the new output sample based on filter equation
+    variable yn : real;  -- Variable to compute the new output (y) sample based on filter (n)
+
     begin
-        if rst = '1' then
-            -- Reset the history when reset signal is high
+
+        if rst = '1' then  -- Reset history when reset is high
             x_hist <= (others => (others => '0'));
             y_hist <= (others => (others => '0'));
             filter_output <= (others => '0');
-        elsif rising_edge(clk) then
-            -- Update history: Shift older samples to make room for the new ones
+
+        elsif rising_edge(clk) then  -- Updates history on the risking edge, Shifts older audio samples to make room for the new ones
+
             x_hist(2) <= x_hist(1); x_hist(1) <= x_hist(0); x_hist(0) <= audio_in;
             y_hist(2) <= y_hist(1); y_hist(1) <= y_hist(0);
 
-            -- Compute the new output sample using the current and past inputs and outputs
+            -- Compute new output using the current and past inputs and outputs
             yn := b_coeffs(f_sel)(1) * to_real(to_integer(x_hist(0))) +
-                  b_coeffs(f_sel)(2) * to_real(to_integer(x_hist(1))) +
+                  b_coeffs(f_sel)(2) * to_real(to_integer(x_hist(1))) +=
                   b_coeffs(f_sel)(3) * to_real(to_integer(x_hist(2))) -
                   a_coeffs(f_sel)(2) * to_real(to_integer(y_hist(1))) -
                   a_coeffs(f_sel)(3) * to_real(to_integer(y_hist(2)));

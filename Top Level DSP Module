@@ -3,6 +3,8 @@
 // DSP uses f_sel values to select, which frequencies gain to modulate
 // All signals are added in top level module and outputed to audio codec
 
+
+// V1 -- Only for DSP no MOde_Sel
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -83,10 +85,7 @@ end Behavioral;
 
 
 
-
-
-
-// V2
+// V2 -- With Mode Selected
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;

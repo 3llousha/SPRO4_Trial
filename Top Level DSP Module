@@ -1,0 +1,137 @@
+// Ui interface changes 2 values, f_sel & fgain_lvl.
+// Ui Interface also selects between 2 modules, DSP, Volume using varibale Mode_Sel
+// DSP uses f_sel values to select, which frequencies gain to modulate
+// All signals are added in top level module and outputed to audio codec
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity graphic_EQ is
+    Port (
+        clk           : in  std_logic; -- Clock
+        reset         : in  std_logic; -- Reset 
+        audio_in      : in  signed(23 downto 0); --  24 bit audio in
+        audio_out     : out signed(23 downto 0)  -- 24 bit audio out
+    )
+end graphic_EQ;
+
+architecture Behavioral of graphic_EQ is -- Signals for Buttersworth filters output
+    
+signal -- 24Bit signal for each f
+    filtered_64Hz, 
+    filtered_125Hz, 
+    filtered_250Hz, 
+    filtered_500Hz,
+    filtered_1kHz, 
+    filtered_2kHz, 
+    filtered_4kHz,
+    filtered_16kHz: 
+signed(23 downto 0); 
+
+    signal eq_signals : signed(23 downto 0); -- 24 bit Combined audio out (Summation Of all filtered signals) 
+begin
+
+-- 64Hz Band Filter
+    filter_64Hz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10)-- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_64Hz);
+
+-- 125Hz Band Filter
+    filter_125Hz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_125Hz);
+
+-- 250Hz Band Filter
+    filter_250Hz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_250Hz);
+
+-- 500Hz Band Filter
+    filter_500Hz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_500Hz);
+
+-- 1kHz Band Filter
+    filter_1kHz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_1kHz);
+
+-- 2kHz Band Filter
+    filter_2kHz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_2kHz);
+
+-- 4kHz Band Filter
+    filter_4kHz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_4kHz);
+
+-- 16kHz Band Filter
+    filter_16kHz : entity work.BandFilter
+        generic map (a0 => 0.1, a1 => 0.2, a2 => 0.1, b1 => -0.3, b2 => -0.2, fgain_lvl => 10) -- Coeff Calculated in MATLAB
+        port map (clk => clk, rst => reset, audio_in => audio_in, audio_out => filtered_16kHz);
+
+    -- Audio out will be a summation of each filtered output.
+    eq_fsignals <= filtered_64Hz + filtered_125Hz + filtered_250Hz + filtered_500Hz +
+                  filtered_1kHz + filtered_2kHz + filtered_4kHz + filtered_16kHz;
+
+    -- Output the combined signal
+    audio_out <= eq_fsignals;
+
+end Behavioral;
+
+
+
+
+
+
+// V2
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity GraphicEQ is
+    Port (
+        clk           : in std_logic;            -- Clock signal
+        rst           : in std_logic;            -- Reset signal, active high
+        mode_sel      : in std_logic;            -- Mode selector: 0 for DSP, 1 for Volume control
+        f_sel         : in integer range 1 to 8; -- Frequency band selector for the DSP module
+        volume_lvl    : in integer range 0 to 100;  -- Volume level for the Volume module
+        audio_in      : in signed(23 downto 0);  -- Input audio signal
+        audio_out     : out signed(23 downto 0)  -- Output audio signal, either from DSP or Volume module
+    );
+end GraphicEQ;
+
+architecture Behavioral of GraphicEQ is
+    signal dsp_audio_out, vol_audio_out : signed(23 downto 0); -- Outputs from the DSP and Volume modules
+
+begin
+    -- DSP Module instantiation
+    dsp : entity work.DSPModule
+        port map (clk => clk, rst => rst, audio_in => audio_in, f_sel => f_sel, audio_out => dsp_audio_out);
+
+    -- Volume Module instantiation
+    volume : entity work.VolumeModule
+        port map (clk => clk, rst => rst, audio_in => audio_in, volume_lvl => volume_lvl, audio_out => vol_audio_out);
+
+    -- Output selection based on mode selector
+    output_select : process(clk, rst)
+    begin
+        if rst = '1' then
+            audio_out <= (others => '0');  -- Reset output
+        elsif rising_edge(clk) then
+            if mode_sel = '0' then
+                audio_out <= dsp_audio_out;  -- Output from DSP module
+            else
+                audio_out <= vol_audio_out;  -- Output from Volume module
+            end if;
+        end if;
+    end process;
+
+end Behavioral;
+
+
+
+
+

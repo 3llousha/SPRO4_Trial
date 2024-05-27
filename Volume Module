@@ -1,0 +1,39 @@
+// Module to modukate Audio Signal
+//Selected if Mode_Sel = 1
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity VolumeModule is
+    Port (
+        clk        : in std_logic;            -- Clock  
+        rst        : in std_logic;            -- Reset, If high -> reset module
+        audio_in   : in signed(23 downto 0);  -- 24-bit audio in 
+        volume_lvl : in integer range 0 to 100 := 50;  -- Volume level -> default is 50%
+        audio_out  : out signed(23 downto 0)  -- Volume Adjusted  audio out
+    );
+end VolumeModule;
+
+architecture Behavioral of VolumeModule is
+    signal actual_volume_lvl : integer range 0 to 100; -- Value to hold current volume level
+begin
+
+    -- Initialize with current volume level or default value
+    init_volume : process(clk, rst)
+    begin
+        if rst = '1' then
+            actual_volume_lvl <= 50; -- Default reset volume level
+        elsif rising_edge(clk) then
+            actual_volume_lvl <= volume_lvl; -- Update from input
+        end if;
+    end process;
+
+    volume_proc : process(clk)
+    begin
+        if rising_edge(clk) then
+            -- Adjust the volume based on the actual volume level
+            audio_out <= resize(signed(to_integer(audio_in) * actual_volume_lvl / 100), audio_in'length);
+        end if;
+    end process;
+
+end Behavioral;

@@ -1,60 +1,116 @@
-// Maybe design filters on MATLAB?
-#include <math.h>
+-- 4 Parts of Code
+-- 1: Define VHDL Package
+-- 2
+-- 3
+-- 4
 
-// Equalizer settings
-float eqBands[8] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+-- Package Defination
+library IEEE; 
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;  -- For Math Operations
 
-// Function to apply equalizer
-void applyEqualizer(float* input, float* output, int length) {
-    // Implement 8-band equalizer DSP here
-    // This is just a placeholder
-    for (int i = 0; i < length; i++) {
-        output[i] = input[i]; // Placeholder: copy input to output
-    }
-}
+package Audio_EQ is -- Define a subtype for audio samples and coefficients
+    subtype sample_type is SIGNED(23 downto 0);  -- 24-bit audio 
+    subtype coeff_type is SIGNED(15 downto 0);   -- 16-bit filter coefficients
 
-// Function to apply gain
-void applyGain(float* input, float* output, int length, float gain) {
-    for (int i = 0; i < length; i++) {
-        output[i] = input[i] * gain;
-    }
-}
+    -- Function to apply gain at a specific frequency
+    function apply_gain(sample : sample_type; gain_db : INTEGER) return sample_type;
+end Audio_EQ;
 
-// Function to apply pitch modulation
-void applyPitchModulation(float* input, float* output, int length, float pitchFactor) {
-    // Implement pitch modulation DSP here
-    // This is just a placeholder
-    for (int i = 0; i < length; i++) {
-        output[i] = input[i]; // Placeholder: copy input to output
-    }
-}
+-- Implement package
+package body Audio_EQ is
+    function apply_gain(sample : sample_type; gain_db : INTEGER) return sample_type is
+        variable linear_gain : real;
+    begin
+        -- Convert dB gain to linear scale
+        linear_gain := 10.0 ** (real(gain_db) / 20.0);
+
+        -- Apply gain: this is a simplification. Actual implementation would need proper scaling.
+        return sample_type(to_integer(signed(sample) * linear_gain));
+    end function;
+end package body;
 
 
-int main() {
-    // Assume we have input and output buffers
-    float inputBuffer[1024];
-    float outputBuffer[1024];
-    float gain = 1.0;
-    float pitchFactor = 1.0;
+-- Top Level Module
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
-    // Initialize codec and other hardware
-    ADAU1761_Init();
+use work.Audio_EQ.all;  -- Use the package we defined previously
 
-    // Main DSP loop
-    while (1) {
-        // Get audio data into inputBuffer
+entity AudioProcessor is
+    Port (
+        clk         : in  STD_LOGIC;
+        audio_in    : in  sample_type;
+        gain_db     : in  INTEGER;
+        audio_out   : out sample_type
+    );
+end AudioProcessor;
 
-        // Apply equalizer
-        applyEqualizer(inputBuffer, outputBuffer, 1024);
+architecture Behavioral of AudioProcessor is
+begin
+    process(clk)
+    begin
+        if rising_edge(clk) then  -- Apply gain function
+            audio_out <= Audio_EQ.apply_gain(audio_in, gain_db);
+        end if;
+    end process;
+end Behavioral;
 
-        // Apply gain
-        applyGain(outputBuffer, outputBuffer, 1024, gain);
 
-        // Apply pitch modulation
-        applyPitchModulation(outputBuffer, outputBuffer, 1024, pitchFactor);
+-- Testbench
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
-        // Output processed audio data
-    }
+entity TestBench is
+end TestBench;
 
-    return 0;
-}
+architecture Behavioral of TestBench is
+    signal clk         : STD_LOGIC := '0';
+    signal audio_in    : sample_type := (others => '0');
+    signal gain_db     : INTEGER := 0;
+    signal audio_out   : sample_type;
+
+    component AudioProcessor
+        Port (
+            clk         : in  STD_LOGIC;
+            audio_in    : in  sample_type;
+            gain_db     : in  INTEGER;
+            audio_out   : out sample_type
+        );
+    end component;
+
+begin
+    -- Clock generation
+    clk_process : process
+    begin
+        clk <= '0';
+        wait for 10 ns;
+        clk <= '1';
+        wait for 10 ns;
+    end process;
+
+    -- Instantiate the Audio Processor
+    DUT : AudioProcessor port map (
+        clk => clk,
+        audio_in => audio_in,
+        gain_db => gain_db,
+        audio_out => audio_out
+    );
+
+    -- Stimulus process
+    stim_proc : process
+    begin
+        -- Initialize inputs
+        gain_db <= 6;  -- Example: Increase gain by 6 dB
+        audio_in <= X"00A000";  -- Example input signal
+
+        -- Wait for the clock to process
+        wait for 100 ns;
+        gain_db <= 0;  -- Set gain to 0 dB to observe change
+        wait;
+    end process;
+end Behavioral;
+
+

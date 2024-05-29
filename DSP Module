@@ -164,86 +164,92 @@ begin
     audio_out <= filter_output;
 end Behavioral;
 
-
+-- V4 Optimized
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity DSPModule is
     Port (
-        clk        : in std_logic;            -- Clock
-        rst        : in std_logic;            -- Reset
-        audio_in   : in signed(23 downto 0);  -- Input audio  
-        f_sel      : in integer range 1 to 8; -- variable for choosing which band to apply
-        fgain_lvl  : in integer range -24 to 24; -- Gain Adjustment, from -24dB to +24dB range
-        audio_out  : out signed(23 downto 0)  -- Output audio signal after filtering
+        clk        : in  std_logic;
+        rst        : in  std_logic;
+        audio_in   : in  signed(23 downto 0);
+        f_sel      : in  integer range 1 to 8;
+        fgain_lvl  : in  integer range -24 to 24;
+        audio_out  : out signed(23 downto 0)
     );
 end DSPModule;
 
 architecture Behavioral of DSPModule is
-    type coeff_array is array (1 to 3) of signed(23 downto 0); 
+    type coeff_array is array (1 to 3) of signed(23 downto 0);
     type b_coeffs_type is array (1 to 8) of coeff_array;
-    constant b_coeffs: b_coeffs_type := (
-        (x"000011D", x"000024D", x"000011D"),  -- Coefficients for 64 Hz
-        (x"000044E", x"000089C", x"000044E"),  -- Coefficients for 125 Hz
-        (x"001127", x"00224E", x"001127"),  -- Coefficients for 250 Hz
-        (x"04309", x"08622", x"04309"),  -- Coefficients for 500 Hz
-        (x"101F9", x"203F2", x"101F9"),  -- Coefficients for 1000 Hz
-        (x"3B003", x"76006", x"3B003"),  -- Coefficients for 2000 Hz
-        (x"CA1EA", x"1933D4", x"CA1EA"),  -- Coefficients for 4000 Hz
-        (x"773900", x"EE7200", x"773900")   -- Coefficients for 16000 Hz
+    type a_coeffs_type is array (1 to 8) of coeff_array;
+
+    constant b_coeffs : b_coeffs_type := (
+        (x"000011D", x"000024D", x"000011D"), -- Coefficients for 64 Hz
+        (x"000044E", x"000089C", x"000044E"), -- Coefficients for 125 Hz
+        (x"001127", x"00224E", x"001127"),    -- Coefficients for 250 Hz
+        (x"04309", x"08622", x"04309"),       -- Coefficients for 500 Hz
+        (x"101F9", x"203F2", x"101F9"),       -- Coefficients for 1000 Hz
+        (x"3B003", x"76006", x"3B003"),       -- Coefficients for 2000 Hz
+        (x"CA1EA", x"1933D4", x"CA1EA"),      -- Coefficients for 4000 Hz
+        (x"773900", x"EE7200", x"773900")     -- Coefficients for 16000 Hz
     );
 
-    type a_coeffs_type is array (1 to 8) of coeff_array;
-    constant a_coeffs: a_coeffs_type := (
+    constant a_coeffs : a_coeffs_type := (
         (x"1000000", x"FFE8B8CA", x"FD72C01"), -- Coefficients for 64 Hz
         (x"1000000", x"FFE92314", x"FA73AC6"), -- Coefficients for 125 Hz
         (x"1000000", x"FFEB1812", x"F4C5A1E"), -- Coefficients for 250 Hz
         (x"1000000", x"FFEF3C60", x"E9950F6"), -- Coefficients for 500 Hz
         (x"1000000", x"FFF2D641", x"D4D013D"), -- Coefficients for 1000 Hz
         (x"1000000", x"FFFA15D9", x"B0A3199"), -- Coefficients for 2000 Hz
-        (x"1000000", x"FFF35B3A", x"7A4F2C"), -- Coefficients for 4000 Hz
-        (x"1000000", x"FFB7DBEF", x"3D44EA")  -- Coefficients for 16000 Hz
+        (x"1000000", x"FFF35B3A", x"7A4F2C"),  -- Coefficients for 4000 Hz
+        (x"1000000", x"FFB7DBEF", x"3D44EA")   -- Coefficients for 16000 Hz
     );
 
-    -- Internal signals to store the history of input and output audio samples
-    signal x_hist, y_hist : coeff_array;  -- x_hist stores input audio samples, y_hist stores output audio samples
-
-    -- Filter output signal
-    signal filter_output : signed(23 downto 0); -- 24-bit filtered audio out
+    signal x_hist, y_hist : coeff_array;
+    signal filter_output  : signed(23 downto 0);
 
 begin
+
     -- Filter process
-    filter_processing : process(clk, rst)
-    variable yn : signed(47 downto 0);  -- Variable to compute the new output (y) sample based on filter (n)
-    variable gain_factor : signed(47 downto 0); -- Variable for gain adjustment
+    filter_processing : process(clk)
+        variable yn          : signed(47 downto 0);
+        variable gain_factor : real;
     begin
-        if rst = '1' then  -- Reset history when reset is high
-            x_hist <= (others => (others => '0'));
-            y_hist <= (others => (others => '0'));
-            filter_output <= (others => '0');
-        elsif rising_edge(clk) then  -- Updates history on the rising edge, Shifts older audio samples to make room for the new ones
-            x_hist(2) <= x_hist(1); x_hist(1) <= x_hist(0); x_hist(0) <= audio_in;
-            y_hist(2) <= y_hist(1); y_hist(1) <= y_hist(0);
+        if rising_edge(clk) then
+            -- Shift older audio samples to make room for the new ones
+            x_hist(2) <= x_hist(1);
+            x_hist(1) <= x_hist(0);
+            x_hist(0) <= audio_in;
+
+            y_hist(2) <= y_hist(1);
+            y_hist(1) <= y_hist(0);
 
             -- Compute new output using the current and past inputs and outputs
-            yn := resize(b_coeffs(f_sel)(1) * x_hist(0), 48) +
-                  resize(b_coeffs(f_sel)(2) * x_hist(1), 48) +
-                  resize(b_coeffs(f_sel)(3) * x_hist(2), 48) -
-                  resize(a_coeffs(f_sel)(2) * y_hist(1), 48) -
-                  resize(a_coeffs(f_sel)(3) * y_hist(2), 48);
-
-            -- Calculate gain factor
-            gain_factor := resize(to_signed(fgain_lvl, 24) + 100, 48); -- fgain_lvl is in the range -24 to 24, adding 100 to use percentage scale
+            yn := signed(resize(b_coeffs(f_sel)(1) * x_hist(0), 48)) +
+                  signed(resize(b_coeffs(f_sel)(2) * x_hist(1), 48)) +
+                  signed(resize(b_coeffs(f_sel)(3) * x_hist(2), 48)) -
+                  signed(resize(a_coeffs(f_sel)(2) * y_hist(1), 48)) -
+                  signed(resize(a_coeffs(f_sel)(3) * y_hist(2), 48));
 
             -- Apply gain control to the output
-            y_hist(0) <= resize(yn * gain_factor / 100, 24); -- Scale and resize
+            gain_factor := 1.0 + real(fgain_lvl) / 100.0;
+            y_hist(0) <= resize(signed(real(yn) * gain_factor), 24);
             filter_output <= y_hist(0);
+
+            -- Reset history when reset is high
+            if rst = '1' then
+                x_hist <= (others => (others => '0'));
+                y_hist <= (others => (others => '0'));
+                filter_output <= (others => '0');
+            end if;
         end if;
     end process;
 
     -- Output the processed audio signal
     audio_out <= filter_output;
+
 end Behavioral;
 
 

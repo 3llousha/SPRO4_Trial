@@ -164,6 +164,7 @@ begin
     audio_out <= filter_output;
 end Behavioral;
 
+--V4 optimized
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -213,9 +214,9 @@ begin
 
     -- Filter process
     filter_processing : process(clk)
-        variable yn          : signed(47 downto 0);
-        variable gain_factor : real;
-        variable scaled_yn   : signed(23 downto 0);
+        variable yn            : signed(47 downto 0);
+        variable gain_factor   : real;
+        variable scaled_yn_int : integer;
     begin
         if rising_edge(clk) then
             -- Shift older audio samples to make room for the new ones
@@ -235,8 +236,9 @@ begin
 
             -- Apply gain control to the output
             gain_factor := 1.0 + real(fgain_lvl) / 100.0;
-            scaled_yn := signed(real(yn) * gain_factor);
-            y_hist(0) <= resize(scaled_yn, 24);
+            scaled_yn_int := integer(real(yn) * gain_factor); -- Convert to integer after scaling
+            scaled_yn := to_signed(scaled_yn_int, 24); -- Convert integer to signed value
+            y_hist(0) <= scaled_yn;
             filter_output <= y_hist(0);
 
             -- Reset history when reset is high

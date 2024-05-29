@@ -82,3 +82,32 @@ begin
     -- Output the processed audio signal
     audio_out <= filter_output;
 end Behavioral;
+
+
+-- Hex Coeff
+    type b_coeffs_type is array (1 to 8) of coeff_array;
+    constant b_coeffs: b_coeffs_type := (
+        (16#38C8_5C28#, 16#3C56_5A9E#, 16#38C8_5C28#),  -- Coefficients for 64 Hz
+        (16#3A83_8E38#, 16#3C96_71C4#, 16#3A83_8E38#),  -- Coefficients for 125 Hz
+        (16#3C86_771A#, 16#3D86_771A#, 16#3C86_771A#),  -- Coefficients for 250 Hz
+        (16#3E01_5030#, 16#3F01_5030#, 16#3E01_5030#),  -- Coefficients for 500 Hz
+        (16#3F1E_41D7#, 16#3F81_D7A3#, 16#3F1E_41D7#),  -- Coefficients for 1000 Hz
+        (16#3F95_B03D#, 16#3FC5_B03D#, 16#3F95_B03D#),  -- Coefficients for 2000 Hz
+        (16#3FBA_92B0#, 16#3FDA_92B0#, 16#3FBA_92B0#),  -- Coefficients for 4000 Hz
+        (16#3FE0_84F9#, 16#3FE0_84F9#, 16#3FE0_84F9#)   -- Coefficients for 16000 Hz
+    );
+
+
+    type a_coeffs_type is array (1 to 8) of coeff_array;
+    constant a_coeffs : a_coeffs_type := (
+        (16#3F80_0000#, 16#BF7C_9F91#, 16#3F7C_A3D7#), -- Coefficients for 64 Hz
+        (16#3F80_0000#, 16#BF7C_45B5#, 16#3F7C_EE5E#), -- Coefficients for 125 Hz
+        (16#3F80_0000#, 16#BF76_D646#, 16#3F76_F3DC#), -- Coefficients for 250 Hz
+        (16#3F80_0000#, 16#BF61_93E4#, 16#3F69_4A40#), -- Coefficients for 500 Hz
+        (16#3F80_0000#, 16#BF3C_63F6#, 16#3F56_BF91#), -- Coefficients for 1000 Hz
+        (16#3F80_0000#, 16#BF12_0040#, 16#3F34_1EB8#), -- Coefficients for 2000 Hz
+        (16#3F80_0000#, 16#BEA3_19B0#, 16#3EF4_2C26#), -- Coefficients for 4000 Hz
+        (16#3F80_0000#, 16#BD97_821A#, 16#3E3D_1B6C#)  -- Coefficients for 16000 Hz
+    );
+
+

@@ -1,6 +1,6 @@
-// DSP Module
-// If Mode_Sel = 1, Based on f_sel respective frequencies are modulated
-// Tried Optimize by having buffers for large data input and shift registers to handle feedforward and feedback
+-- DSP Module
+-- If Mode_Sel = 1, Based on f_sel respective frequencies are modulated
+-- Tried Optimize by having buffers for large data input and shift registers to handle feedforward and feedback
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -67,14 +67,14 @@ begin
             y_hist(2) <= y_hist(1); y_hist(1) <= y_hist(0);
 
             -- Compute new output using the current and past inputs and outputs
-            yn := b_coeffs(f_sel)(1) * to_real(to_integer(x_hist(0))) +
-                  b_coeffs(f_sel)(2) * to_real(to_integer(x_hist(1))) +
-                  b_coeffs(f_sel)(3) * to_real(to_integer(x_hist(2))) -
-                  a_coeffs(f_sel)(2) * to_real(to_integer(y_hist(1))) -
-                  a_coeffs(f_sel)(3) * to_real(to_integer(y_hist(2)));
+            yn := b_coeffs(f_sel)(1) * real(to_integer(x_hist(0))) +
+                  b_coeffs(f_sel)(2) * real(to_integer(x_hist(1))) +
+                  b_coeffs(f_sel)(3) * real(to_integer(x_hist(2))) -
+                  a_coeffs(f_sel)(2) * real(to_integer(y_hist(1))) -
+                  a_coeffs(f_sel)(3) * real(to_integer(y_hist(2)));
 
             -- Apply gain control to the output
-            y_hist(0) <= to_signed(integer(yn * (1.0 + fgain_lvl / 100.0)), 24);
+            y_hist(0) <= to_signed(integer(yn * (1.0 + real(fgain_lvl) / 100.0)), 24);
             filter_output <= y_hist(0);
         end if;
     end process;

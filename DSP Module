@@ -235,7 +235,8 @@ begin
 
             -- Apply gain control to the output
             gain_factor := 1.0 + real(fgain_lvl) / 100.0;
-            y_hist(0) <= resize(signed(real(yn) * gain_factor), 24);
+            scaled_yn := signed(real(yn) * gain_factor); -- Convert to signed after scaling
+            y_hist(0) <= resize(scaled_yn, 24); -- Resize the scaled output
             filter_output <= y_hist(0);
 
             -- Reset history when reset is high
@@ -251,5 +252,3 @@ begin
     audio_out <= filter_output;
 
 end Behavioral;
-
-

@@ -1,0 +1,43 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity GraphicEQ is
+    Port (
+        clk           : in std_logic;            -- Clock signal
+        rst           : in std_logic;            -- Reset signal, active high
+        mode_sel      : in std_logic;            -- Mode selector: 0 for DSP, 1 for Volume control
+        f_sel         : in integer range 1 to 8; -- Frequency band selector for the DSP module
+        volume_lvl    : in integer range 0 to 100;  -- Volume level for the Volume module
+        audio_in      : in signed(23 downto 0);  -- Input audio signal
+        audio_out     : out signed(23 downto 0)  -- Output audio signal, either from DSP or Volume module
+    );
+end GraphicEQ;
+
+architecture Behavioral of GraphicEQ is
+    signal dsp_audio_out, vol_audio_out : signed(23 downto 0); -- Outputs from the DSP and Volume modules
+
+begin
+    -- DSP Module instantiation
+    dsp : entity work.DSPModule
+        port map (clk => clk, rst => rst, audio_in => audio_in, f_sel => f_sel, audio_out => dsp_audio_out);
+
+    -- Volume Module instantiation
+    volume : entity work.VolumeModule
+        port map (clk => clk, rst => rst, audio_in => audio_in, volume_lvl => volume_lvl, audio_out => vol_audio_out);
+
+    -- Output selection based on mode selector
+    output_select : process(clk, rst)
+    begin
+        if rst = '1' then
+            audio_out <= (others => '0');  -- Reset output
+        elsif rising_edge(clk) then
+            if mode_sel = '0' then
+                audio_out <= dsp_audio_out;  -- Output from DSP module
+            else
+                audio_out <= vol_audio_out;  -- Output from Volume module
+            end if;
+        end if;
+    end process;
+
+end Behavioral;

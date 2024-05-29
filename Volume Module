@@ -1,84 +1,39 @@
--- DSP Module
--- If Mode_Sel = 1, Based on f_sel respective frequencies are modulated
--- Tried Optimize by having buffers for large data input and shift registers to handle feedforward and feedback
-
+-- Module to modulate Audio Signal
+-- Selected if Mode_Sel = 1
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity DSPModule is
+entity VolumeModule is
     Port (
-        clk        : in std_logic;            -- Clock
-        rst        : in std_logic;            -- Reset
-        audio_in   : in signed(23 downto 0);  -- Input audio  
-        f_sel      : in integer range 1 to 8; -- variable for choosing which band to apply
-        fgain_lvl  : in integer range -24 to 24; -- Gain Adjustment, from -24dB to +24dB range
-        audio_out  : out signed(23 downto 0)  -- Output audio signal after filtering
+        clk        : in std_logic;            -- Clock  
+        rst        : in std_logic;            -- Reset, If high -> reset module
+        audio_in   : in signed(23 downto 0);  -- 24-bit audio in 
+        volume_lvl : in integer range 0 to 100 := 50;  -- Volume level -> default is 50%
+        audio_out  : out signed(23 downto 0)  -- Volume Adjusted  audio out
     );
-end DSPModule;
+end VolumeModule;
 
-architecture Behavioral of DSPModule is
-    type coeff_array is array (1 to 3) of real; 
-    type audio_array is array (0 to 2) of signed(23 downto 0); -- 24-bit audio
-
-    -- Coefficients for Butterworth filters at specified frequencies, calculated using MATLAB
-    type b_coeffs_type is array (1 to 8) of coeff_array;
-    constant b_coeffs: b_coeffs_type := (
-        (0.000017, 0.000035, 0.000017),  -- Coefficients for 64 Hz
-        (0.000066, 0.000132, 0.000066),  -- Coefficients for 125 Hz
-        (0.000262, 0.000523, 0.000262),  -- Coefficients for 250 Hz
-        (0.001023, 0.002046, 0.001023),  -- Coefficients for 500 Hz
-        (0.003916, 0.007832, 0.003916),  -- Coefficients for 1000 Hz
-        (0.014401, 0.028803, 0.014401),  -- Coefficients for 2000 Hz
-        (0.049490, 0.098980, 0.049490),  -- Coefficients for 4000 Hz
-        (0.465153, 0.930306, 0.465153)   -- Coefficients for 16000 Hz
-    );
-
-    type a_coeffs_type is array (1 to 8) of coeff_array;
-    constant a_coeffs : a_coeffs_type := (
-        (1.0, -1.988152, 0.988222), -- Coefficients for 64 Hz
-        (1.0, -1.976861, 0.977126), -- Coefficients for 125 Hz
-        (1.0, -1.953728, 0.954775), -- Coefficients for 250 Hz
-        (1.0, -1.907502, 0.911594), -- Coefficients for 500 Hz
-        (1.0, -1.815341, 0.831006), -- Coefficients for 1000 Hz
-        (1.0, -1.632993, 0.690599), -- Coefficients for 2000 Hz
-        (1.0, -1.279632, 0.477592), -- Coefficients for 4000 Hz
-        (1.0, -0.620204, 0.240408)  -- Coefficients for 16000 Hz
-    );
-
-    -- Internal signals to store the history of input and output audio samples
-    signal x_hist, y_hist : audio_array;  -- x_hist stores input audio samples, y_hist stores output audio samples
-
-    -- Filter output signal
-    signal filter_output : signed(23 downto 0); -- 24-bit filtered audio out
-
+architecture Behavioral of VolumeModule is
+    signal actual_volume_lvl : integer range 0 to 100; -- Value to hold current volume level
 begin
-    -- Filter process, relates to clock and reset
-    filter_processing : process(clk, rst)
-        variable yn : real;  -- Variable to compute the new output (y) sample based on filter (n)
+
+    -- Initialize with current volume level or default value
+    init_volume : process(clk, rst)
     begin
-        if rst = '1' then  -- Reset history when reset is high
-            x_hist <= (others => (others => '0'));
-            y_hist <= (others => (others => '0'));
-            filter_output <= (others => '0');
-
-        elsif rising_edge(clk) then  -- Updates history on the rising edge, shifts older audio samples to make room for the new ones
-            x_hist(2) <= x_hist(1); x_hist(1) <= x_hist(0); x_hist(0) <= audio_in;
-            y_hist(2) <= y_hist(1); y_hist(1) <= y_hist(0);
-
-            -- Compute new output using the current and past inputs and outputs
-            yn := b_coeffs(f_sel)(1) * real(to_integer(signed(x_hist(0)))) +
-                  b_coeffs(f_sel)(2) * real(to_integer(signed(x_hist(1)))) +
-                  b_coeffs(f_sel)(3) * real(to_integer(signed(x_hist(2)))) -
-                  a_coeffs(f_sel)(2) * real(to_integer(signed(y_hist(1)))) -
-                  a_coeffs(f_sel)(3) * real(to_integer(signed(y_hist(2))));
-
-            -- Apply gain control to the output
-            y_hist(0) <= to_signed(integer(yn * (1.0 + real(fgain_lvl) / 100.0)), 24);
-            filter_output <= y_hist(0);
+        if rst = '1' then
+            actual_volume_lvl <= 50; -- Default reset volume level
+        elsif rising_edge(clk) then
+            actual_volume_lvl <= volume_lvl; -- Update from input
         end if;
     end process;
 
-    -- Output the processed audio signal
-    audio_out <= filter_output;
+    volume_proc : process(clk)
+begin
+    if rising_edge(clk) then
+        -- Adjust the volume based on the actual volume level
+        audio_out <= resize(audio_in * to_signed(actual_volume_lvl, audio_in'length) / 100, audio_in'length);
+    end if;
+end process;
+
 end Behavioral;

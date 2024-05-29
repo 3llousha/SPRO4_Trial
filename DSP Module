@@ -83,6 +83,8 @@ begin
     audio_out <= filter_output;
 end Behavioral;
 
+
+-- V3 Hexa Update
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -133,7 +135,8 @@ architecture Behavioral of DSPModule is
 begin
     -- Filter process
     filter_processing : process(clk, rst)
-    variable yn : signed(23 downto 0);  -- Variable to compute the new output (y) sample based on filter (n)
+        variable yn : signed(47 downto 0);  -- Variable to compute the new output (y) sample based on filter (n)
+        variable gain_factor : real;
     begin
         if rst = '1' then  -- Reset history when reset is high
             x_hist <= (others => (others => '0'));
@@ -144,14 +147,15 @@ begin
             y_hist(2) <= y_hist(1); y_hist(1) <= y_hist(0);
 
             -- Compute new output using the current and past inputs and outputs
-            yn := (resize(b_coeffs(f_sel)(1) * x_hist(0), 48) +
-                   resize(b_coeffs(f_sel)(2) * x_hist(1), 48) +
-                   resize(b_coeffs(f_sel)(3) * x_hist(2), 48) -
-                   resize(a_coeffs(f_sel)(2) * y_hist(1), 48) -
-                   resize(a_coeffs(f_sel)(3) * y_hist(2), 48))(47 downto 24);
+            yn := signed(resize(b_coeffs(f_sel)(1) * x_hist(0), 48)) +
+                  signed(resize(b_coeffs(f_sel)(2) * x_hist(1), 48)) +
+                  signed(resize(b_coeffs(f_sel)(3) * x_hist(2), 48)) -
+                  signed(resize(a_coeffs(f_sel)(2) * y_hist(1), 48)) -
+                  signed(resize(a_coeffs(f_sel)(3) * y_hist(2), 48));
 
             -- Apply gain control to the output
-            y_hist(0) <= resize(yn * to_signed(1.0 + fgain_lvl / 100.0, 24), 24);
+            gain_factor := 1.0 + fgain_lvl / 100.0;
+            y_hist(0) <= resize(signed(real(yn) * gain_factor), 24);
             filter_output <= y_hist(0);
         end if;
     end process;

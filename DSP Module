@@ -164,93 +164,116 @@ begin
     audio_out <= filter_output;
 end Behavioral;
 
---V4 optimized
+-- V4 optimized
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+-- Entity declaration for a DSP module
+-- It handles audio data input and output, as well as filter configuration
 entity DSPModule is
-    Port (
-        clk        : in  std_logic;
-        rst        : in  std_logic;
-        audio_in   : in  signed(23 downto 0);
-        f_sel      : in  integer range 1 to 8;
-        fgain_lvl  : in  integer range -24 to 24;
-        audio_out  : out signed(23 downto 0)
-    );
+   Port (
+       clk        : in  std_logic;  -- Clock input
+       rst        : in  std_logic;  -- Reset input
+       audio_in   : in  signed(23 downto 0);  -- 24-bit signed audio input
+       f_sel      : in  integer range 1 to 8;  -- Filter selection (1-8)
+       fgain_lvl  : in  integer range -24 to 24;  -- Filter gain level (-24 to 24)
+       audio_out  : out signed(23 downto 0)  -- 24-bit signed audio output
+   );
 end DSPModule;
 
 architecture Behavioral of DSPModule is
-    type coeff_array is array (1 to 3) of signed(23 downto 0);
-    type b_coeffs_type is array (1 to 8) of coeff_array;
-    type a_coeffs_type is array (1 to 8) of coeff_array;
+   -- Type definition for an array to store filter coefficients
+   type coeff_array is array (1 to 3) of signed(23 downto 0);
 
-    constant b_coeffs : b_coeffs_type := (
-        (x"000011D", x"000024D", x"000011D"), -- Coefficients for 64 Hz
-        (x"000044E", x"000089C", x"000044E"), -- Coefficients for 125 Hz
-        (x"001127", x"00224E", x"001127"),    -- Coefficients for 250 Hz
-        (x"04309", x"08622", x"04309"),       -- Coefficients for 500 Hz
-        (x"101F9", x"203F2", x"101F9"),       -- Coefficients for 1000 Hz
-        (x"3B003", x"76006", x"3B003"),       -- Coefficients for 2000 Hz
-        (x"CA1EA", x"1933D4", x"CA1EA"),      -- Coefficients for 4000 Hz
-        (x"773900", x"EE7200", x"773900")     -- Coefficients for 16000 Hz
-    );
+   -- Type definitions to store multiple sets of filter coefficients
+   type b_coeffs_type is array (1 to 8) of coeff_array;
+   type a_coeffs_type is array (1 to 8) of coeff_array;
 
-    constant a_coeffs : a_coeffs_type := (
-        (x"1000000", x"FFE8B8CA", x"FD72C01"), -- Coefficients for 64 Hz
-        (x"1000000", x"FFE92314", x"FA73AC6"), -- Coefficients for 125 Hz
-        (x"1000000", x"FFEB1812", x"F4C5A1E"), -- Coefficients for 250 Hz
-        (x"1000000", x"FFEF3C60", x"E9950F6"), -- Coefficients for 500 Hz
-        (x"1000000", x"FFF2D641", x"D4D013D"), -- Coefficients for 1000 Hz
-        (x"1000000", x"FFFA15D9", x"B0A3199"), -- Coefficients for 2000 Hz
-        (x"1000000", x"FFF35B3A", x"7A4F2C"),  -- Coefficients for 4000 Hz
-        (x"1000000", x"FFB7DBEF", x"3D44EA")   -- Coefficients for 16000 Hz
-    );
+   -- Constant arrays containing filter coefficients for different frequencies
+   constant b_coeffs : b_coeffs_type := (
+       -- Coefficients for 64 Hz filter
+       (x"000011D", x"000024D", x"000011D"),
+       -- Coefficients for 125 Hz filter
+       (x"000044E", x"000089C", x"000044E"),
+       -- Coefficients for 250 Hz filter
+       (x"001127", x"00224E", x"001127"),
+       -- Coefficients for 500 Hz filter
+       (x"04309", x"08622", x"04309"),
+       -- Coefficients for 1000 Hz filter
+       (x"101F9", x"203F2", x"101F9"),
+       -- Coefficients for 2000 Hz filter
+       (x"3B003", x"76006", x"3B003"),
+       -- Coefficients for 4000 Hz filter
+       (x"CA1EA", x"1933D4", x"CA1EA"),
+       -- Coefficients for 16000 Hz filter
+       (x"773900", x"EE7200", x"773900")
+   );
 
-    signal x_hist, y_hist : coeff_array;
-    signal filter_output  : signed(23 downto 0);
+   constant a_coeffs : a_coeffs_type := (
+       -- Coefficients for 64 Hz filter
+       (x"1000000", x"FFE8B8CA", x"FD72C01"),
+       -- Coefficients for 125 Hz filter
+       (x"1000000", x"FFE92314", x"FA73AC6"),
+       -- Coefficients for 250 Hz filter
+       (x"1000000", x"FFEB1812", x"F4C5A1E"),
+       -- Coefficients for 500 Hz filter
+       (x"1000000", x"FFEF3C60", x"E9950F6"),
+       -- Coefficients for 1000 Hz filter
+       (x"1000000", x"FFF2D641", x"D4D013D"),
+       -- Coefficients for 2000 Hz filter
+       (x"1000000", x"FFFA15D9", x"B0A3199"),
+       -- Coefficients for 4000 Hz filter
+       (x"1000000", x"FFF35B3A", x"7A4F2C"),
+       -- Coefficients for 16000 Hz filter
+       (x"1000000", x"FFB7DBEF", x"3D44EA")
+   );
+
+   -- Signals to store past input and output samples
+   signal x_hist, y_hist : coeff_array;
+   signal filter_output  : signed(23 downto 0);  -- Filtered output signal
 
 begin
+   -- Filter processing logic
+   filter_processing : process(clk)
+       -- Variables for intermediate calculations
+       variable yn            : signed(47 downto 0);  -- Temporary variable to store filter output
+       variable gain_factor   : real;  -- Variable to store gain factor
+       variable scaled_yn_int : integer;  -- Variable to store scaled filter output as integer
+   begin
+       if rising_edge(clk) then
+           -- Shift past input and output samples
+           x_hist(2) <= x_hist(1);
+           x_hist(1) <= x_hist(0);
+           x_hist(0) <= audio_in;
+           y_hist(2) <= y_hist(1);
+           y_hist(1) <= y_hist(0);
 
-    -- Filter process
-    filter_processing : process(clk)
-        variable yn            : signed(47 downto 0);
-        variable gain_factor   : real;
-        variable scaled_yn_int : integer;
-    begin
-        if rising_edge(clk) then
-            -- Shift older audio samples to make room for the new ones
-            x_hist(2) <= x_hist(1);
-            x_hist(1) <= x_hist(0);
-            x_hist(0) <= audio_in;
+           -- Compute new filter output using coefficients and past samples
+           yn := signed(resize(b_coeffs(f_sel)(1) * x_hist(0), 48)) +
+                 signed(resize(b_coeffs(f_sel)(2) * x_hist(1), 48)) +
+                 signed(resize(b_coeffs(f_sel)(3) * x_hist(2), 48)) -
+                 signed(resize(a_coeffs(f_sel)(2) * y_hist(1), 48)) -
+                 signed(resize(a_coeffs(f_sel)(3) * y_hist(2), 48));
 
-            y_hist(2) <= y_hist(1);
-            y_hist(1) <= y_hist(0);
+           -- Apply gain control to the filter output
+           gain_factor := 1.0 + real(fgain_lvl) / 100.0;  -- Calculate gain factor based on fgain_lvl input
+           scaled_yn_int := integer(real(yn) * gain_factor);  -- Scale filter output by gain factor
+           scaled_yn := to_signed(scaled_yn_int, 24);  -- Convert scaled output to signed(23 downto 0)
+           y_hist(0) <= scaled_yn;  -- Update y_hist with scaled output
+           filter_output <= y_hist(0);  -- Update filter output signal
 
-            -- Compute new output using the current and past inputs and outputs
-            yn := signed(resize(b_coeffs(f_sel)(1) * x_hist(0), 48)) +
-                  signed(resize(b_coeffs(f_sel)(2) * x_hist(1), 48)) +
-                  signed(resize(b_coeffs(f_sel)(3) * x_hist(2), 48)) -
-                  signed(resize(a_coeffs(f_sel)(2) * y_hist(1), 48)) -
-                  signed(resize(a_coeffs(f_sel)(3) * y_hist(2), 48));
+           -- Reset history and output on reset
+           if rst = '1' then
+               x_hist <= (others => (others => '0'));  -- Clear past input samples
+               y_hist <= (others => (others => '0'));  -- Clear past output samples
+               filter_output <= (others => '0');  -- Clear filter output
+           end if;
+       end if;
+   end process;
 
-            -- Apply gain control to the output
-            gain_factor := 1.0 + real(fgain_lvl) / 100.0;
-            scaled_yn_int := integer(real(yn) * gain_factor); -- Convert to integer after scaling
-            scaled_yn := to_signed(scaled_yn_int, 24); -- Convert integer to signed value
-            y_hist(0) <= scaled_yn;
-            filter_output <= y_hist(0);
-
-            -- Reset history when reset is high
-            if rst = '1' then
-                x_hist <= (others => (others => '0'));
-                y_hist <= (others => (others => '0'));
-                filter_output <= (others => '0');
-            end if;
-        end if;
-    end process;
-
-    -- Output the processed audio signal
-    audio_out <= filter_output;
+   -- Assign filtered output to the output port
+   audio_out <= filter_output;
 
 end Behavioral;
+

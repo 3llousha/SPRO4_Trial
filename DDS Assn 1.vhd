@@ -3,18 +3,18 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
-entity 8bitAdd is
+entity bit8Add is
     Port ( A : in  STD_LOGIC_VECTOR(7 downto 0);
            B : in  STD_LOGIC_VECTOR(7 downto 0);
            Sum : out  STD_LOGIC_VECTOR(7 downto 0);
-           CarryOut : out  STD_LOGIC_VECTOR (7 downto 0);
-end 8bitAdd;
+           CarryOut : out  STD_LOGIC;
+end bit8Add;
 
 -- Architecture typ shi 
-architecture Behavioral of 8bitAdd is
+architecture Behavioral of bit8Add is
 begin
-    process(A, B)-- sensitive to A AND B INPUT
-        variable temp_sum: STD_LOGIC_VECTOR(8 downto 0);// variabe to handle overflow if there is a 9th bti
+    process(A,B)-- sensitive to A AND B INPUT
+        variable temp_sum: STD_LOGIC_VECTOR(8 downto 0);-- variabe to handle overflow if there is a 9th bti
     begin
         temp_sum := ('0' & A) + ('0' & B); -- consitante 8 bits eith temp sum
         Sum <= temp_sum(7 downto 0);
